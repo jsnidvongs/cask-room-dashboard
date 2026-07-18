@@ -302,8 +302,12 @@ function parseDateTime(dateStr, timeStr){
     if(ap.toLowerCase()==='pm' && hh!==12) hh+=12;
     if(ap.toLowerCase()==='am' && hh===12) hh=0;
     t = `${String(hh).padStart(2,'0')}:${mm}:${ss||'00'}`;
-  } else if(/^\d{1,2}:\d{2}$/.test(t)){
-    t = t + ':00';
+  } else {
+    const bare = t.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if(bare){
+      const [,hh,mm,ss] = bare;
+      t = `${hh.padStart(2,'0')}:${mm}:${ss||'00'}`;
+    }
   }
 
   let dt = new Date(`${d}T${t}`);
@@ -540,6 +544,26 @@ function renderChart(){
   const y = v => padT + (1 - (v - vMin)/(vMax - vMin)) * (H - padT - padB);
 
   let svgParts = '';
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const validRows = rows.filter(r=>!isNaN(r.ts.getTime()));
+
+  // alternating day bands (grey/white) drawn first, behind everything else
+  if(validRows.length){
+    const dayBoundaries = [padL];
+    let lastDateSeen = validRows[0].date;
+    validRows.forEach(r=>{
+      if(r.date !== lastDateSeen){
+        dayBoundaries.push(x(r.ts.getTime()));
+        lastDateSeen = r.date;
+      }
+    });
+    dayBoundaries.push(W - padR);
+    for(let i=0;i<dayBoundaries.length-1;i++){
+      if(i % 2 === 1){
+        svgParts += `<rect x="${dayBoundaries[i]}" y="${padT}" width="${dayBoundaries[i+1]-dayBoundaries[i]}" height="${H-padT-padB}" fill="#00000008" />`;
+      }
+    }
+  }
 
   // horizontal gridlines + y labels
   const steps = 4;
@@ -550,11 +574,27 @@ function renderChart(){
     svgParts += `<text class="axis-label" x="${padL-8}" y="${yy+3}" text-anchor="end">${v.toFixed(1)}</text>`;
   }
 
-  // x labels: first and last timestamp
+  // x labels: first and last timestamp, with date included
+  const fmtLabel = r => {
+    const d = new Date(r.ts.getFullYear(), r.ts.getMonth(), r.ts.getDate());
+    return `${months[d.getMonth()]} ${d.getDate()} · ${r.time}`;
+  };
   const firstRow = rows.find(r=>!isNaN(r.ts.getTime()));
   const lastRow = [...rows].reverse().find(r=>!isNaN(r.ts.getTime()));
-  if(firstRow) svgParts += `<text class="axis-label" x="${padL}" y="${H-8}" text-anchor="start">${firstRow.time}</text>`;
-  if(lastRow) svgParts += `<text class="axis-label" x="${W-padR}" y="${H-8}" text-anchor="end">${lastRow.time}</text>`;
+  if(firstRow) svgParts += `<text class="axis-label" x="${padL}" y="${H-8}" text-anchor="start">${fmtLabel(firstRow)}</text>`;
+  if(lastRow) svgParts += `<text class="axis-label" x="${W-padR}" y="${H-8}" text-anchor="end">${fmtLabel(lastRow)}</text>`;
+
+  // mark day boundaries (midnight crossings) with a dashed line + date label
+  let lastDateSeen2 = validRows.length ? validRows[0].date : null;
+  validRows.forEach(r=>{
+    if(r.date !== lastDateSeen2){
+      const xx = x(r.ts.getTime());
+      const d = new Date(r.ts.getFullYear(), r.ts.getMonth(), r.ts.getDate());
+      svgParts += `<line x1="${xx}" y1="${padT}" x2="${xx}" y2="${H-padB}" stroke="#dcdcdc" stroke-width="1" stroke-dasharray="3,3" />`;
+      svgParts += `<text class="axis-label" x="${xx}" y="${padT+11}" text-anchor="middle">${months[d.getMonth()]} ${d.getDate()}</text>`;
+      lastDateSeen2 = r.date;
+    }
+  });
 
   nodes.forEach((n,i)=>{
     const color = palette[i%palette.length];
