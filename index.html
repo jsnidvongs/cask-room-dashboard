@@ -283,6 +283,37 @@ function splitCSVLine(line){
   return out;
 }
 
+function parseDateTime(dateStr, timeStr){
+  let d = (dateStr||'').trim();
+  let t = (timeStr||'').trim();
+
+  // Normalize date: accept YYYY-MM-DD as-is, or M/D/YYYY (Google's common export format)
+  const slash = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(slash){
+    const [,m,day,y] = slash;
+    d = `${y}-${m.padStart(2,'0')}-${day.padStart(2,'0')}`;
+  }
+
+  // Normalize time: strip AM/PM if present, otherwise assume 24h already
+  const ampm = t.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])$/);
+  if(ampm){
+    let [,hh,mm,ss,ap] = ampm;
+    hh = parseInt(hh,10);
+    if(ap.toLowerCase()==='pm' && hh!==12) hh+=12;
+    if(ap.toLowerCase()==='am' && hh===12) hh=0;
+    t = `${String(hh).padStart(2,'0')}:${mm}:${ss||'00'}`;
+  } else if(/^\d{1,2}:\d{2}$/.test(t)){
+    t = t + ':00';
+  }
+
+  let dt = new Date(`${d}T${t}`);
+  if(isNaN(dt.getTime())){
+    // last-resort fallback: let the browser's general parser try the raw strings
+    dt = new Date(`${dateStr} ${timeStr}`);
+  }
+  return dt;
+}
+
 function parseCSV(text){
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim().length);
   if(!lines.length) return [];
@@ -298,7 +329,7 @@ function parseCSV(text){
       date, time, node_id, location:location||'',
       temp_c: parseFloat(temp_c), humidity_pct: parseFloat(humidity_pct),
       pressure_hpa: parseFloat(pressure_hpa), flag: (flag||'').trim(),
-      ts: new Date(`${date}T${time}`)
+      ts: parseDateTime(date, time)
     });
   }
   return rows.sort((a,b)=>a.ts-b.ts);
@@ -493,9 +524,9 @@ function renderChart(){
   const palette = nodes.map((_,i)=> i===0 ? baseColor : shade(baseColor, (i%2===0? -1:1) * 35 * Math.ceil(i/2)));
 
   const allVals = rows.map(r=>r[activeMetric]).filter(v=>!isNaN(v));
-  const allTimes = rows.map(r=>r.ts.getTime());
-  if(!allVals.length){
-    svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#8d8375" font-family="IBM Plex Mono" font-size="13">No ${activeMetric} values yet.</text>`;
+  const allTimes = rows.map(r=>r.ts.getTime()).filter(t=>!isNaN(t));
+  if(!allVals.length || !allTimes.length){
+    svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#8a8a8a" font-family="IBM Plex Mono" font-size="13">No valid ${activeMetric} readings with parseable timestamps.</text>`;
     return;
   }
   let vMin = Math.min(...allVals), vMax = Math.max(...allVals);
@@ -569,11 +600,17 @@ function renderSeason(){
 }
 
 function render(){
-  renderSeason();
-  renderCards();
-  renderRack();
-  renderChart();
-  renderTable();
+  try{
+    renderSeason();
+    renderCards();
+    renderRack();
+    renderChart();
+    renderTable();
+  }catch(err){
+    const svg = document.getElementById('mainChart');
+    if(svg) svg.innerHTML = `<text x="450" y="150" text-anchor="middle" fill="#a83e2a" font-family="IBM Plex Mono" font-size="13">Render error: ${err.message}</text>`;
+    console.error('Dashboard render error:', err);
+  }
 }
 
 document.getElementById('metricControls').addEventListener('click', e=>{
