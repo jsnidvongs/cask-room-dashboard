@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chiang Dao Cask Room — Microclimate</title>
+<style>
+  :root{
+    --ink:#1a1a1a;
+    --ink-dim:#5c5c5c;
+    --bg:#ffffff;
+    --bg-raised:#f2f2f2;
+    --bg-card:#f7f7f7;
+    --line:#dcdcdc;
+    --amber:#b8672e;
+    --amber-bright:#95511f;
+    --teal:#2c5f57;
+    --teal-bright:#1f453f;
+    --stone:#8a8a8a;
+    --error:#a83e2a;
+    --temp:#c0392b;
+    --humidity:#2563eb;
+    --pressure:#1a8f4c;
+    --font-display:'Zilla Slab','Georgia',serif;
+    --font-body:'IBM Plex Sans',system-ui,sans-serif;
+    --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  @font-face{font-family:'Zilla Slab';src:local('Zilla Slab');}
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-body);
+    line-height:1.5;
+    padding:32px 24px 80px;
+  }
+  a{color:var(--amber-bright);}
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  /* ---- Header ---- */
+  header{
+    display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;
+    gap:20px;padding-bottom:26px;margin-bottom:30px;
+    border-bottom:1px solid var(--line);
+  }
+  .eyebrow{
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--teal-bright);margin:0 0 8px;
+  }
+  h1{
+    font-family:var(--font-display);font-weight:600;font-size:38px;line-height:1.05;
+    margin:0 0 8px;color:var(--ink);
+  }
+  .sub{color:var(--ink-dim);font-size:14.5px;max-width:520px;}
+  .season-badge{
+    font-family:var(--font-mono);font-size:12px;padding:10px 16px;border-radius:3px;
+    border:1px solid var(--line);background:var(--bg-raised);text-align:right;min-width:220px;
+  }
+  .season-badge .label{color:var(--ink-dim);display:block;margin-bottom:4px;letter-spacing:.06em;}
+  .season-badge .value{font-size:15px;color:var(--amber-bright);font-weight:600;}
+  .season-badge.monsoon .value{color:var(--teal-bright);}
+
+  /* ---- Section headings ---- */
+  .section-title{
+    font-family:var(--font-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink-dim);margin:0 0 14px;display:flex;align-items:center;gap:10px;
+  }
+  .section-title::after{content:'';flex:1;height:1px;background:var(--line);}
+
+  section{margin-bottom:48px;}
+
+  /* ---- Latest reading cards ---- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;}
+  .card{
+    background:var(--bg-card);border:1px solid var(--line);border-radius:4px;padding:18px 18px 16px;
+    position:relative;overflow:hidden;
+  }
+  .card::before{
+    content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--amber);
+  }
+  .card.outdoor::before{background:var(--teal);}
+  .card .node{font-family:var(--font-mono);font-size:11px;color:var(--ink-dim);letter-spacing:.06em;}
+  .card .loc{font-size:13px;color:var(--ink-dim);margin-bottom:10px;}
+  .card .metrics{display:flex;gap:18px;flex-wrap:wrap;}
+  .card .metric .num{font-family:var(--font-display);font-size:26px;color:var(--ink);}
+  .card .metric .num.num-temp{color:var(--temp);}
+  .card .metric .num.num-humidity{color:var(--humidity);}
+  .card .metric .num.num-pressure{color:var(--pressure);}
+  .card .metric .unit{font-size:12px;color:var(--ink-dim);margin-left:2px;}
+  .card .metric .m-label{font-size:10.5px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em;}
+  .card .ts{margin-top:12px;font-family:var(--font-mono);font-size:10.5px;color:var(--stone);}
+  .card .stale{color:var(--error);}
+
+  /* ---- Rack stratification (signature element) ---- */
+  .rack{
+    display:grid;grid-template-columns:110px repeat(4,1fr);gap:0;
+    border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--bg-raised);
+  }
+  .rack .rhead{padding:12px 14px;font-family:var(--font-mono);font-size:10.5px;color:var(--ink-dim);
+    letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--line);
+    display:flex;align-items:flex-end;}
+  .rack .rhead.slot{justify-content:center;border-left:1px solid var(--line);flex-direction:column;gap:2px;}
+  .rack .rhead.slot .slot-name{color:var(--ink);font-size:12px;text-transform:none;letter-spacing:0;font-weight:600;}
+  .rack .row-label{padding:16px 14px;font-size:13px;color:var(--ink-dim);border-top:1px solid var(--line);
+    display:flex;align-items:center;}
+  .rack .cell{
+    border-top:1px solid var(--line);border-left:1px solid var(--line);
+    padding:16px 12px;text-align:center;position:relative;
+  }
+  .rack .cell .val{font-family:var(--font-mono);font-size:20px;color:var(--ink);}
+  .rack .cell .val.empty{color:var(--stone);font-size:12px;font-style:italic;}
+  .rack .heatbar{height:4px;border-radius:2px;margin-top:10px;background:var(--line);overflow:hidden;}
+  .rack .heatbar span{display:block;height:100%;background:linear-gradient(90deg,var(--humidity),var(--temp));}
+  .rack .note{grid-column:1/-1;padding:12px 14px;font-size:12px;color:var(--stone);border-top:1px solid var(--line);
+    font-family:var(--font-mono);}
+
+  /* ---- Chart panel ---- */
+  .chart-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .chart-controls button{
+    font-family:var(--font-mono);font-size:12px;padding:7px 14px;border-radius:3px;
+    border:1px solid var(--line);background:var(--bg-raised);color:var(--ink-dim);cursor:pointer;
+  }
+  .chart-controls button.active{color:#fff;font-weight:600;}
+  .chart-controls button[data-metric="temp_c"].active{background:var(--temp);border-color:var(--temp);}
+  .chart-controls button[data-metric="humidity_pct"].active{background:var(--humidity);border-color:var(--humidity);}
+  .chart-controls button[data-metric="pressure_hpa"].active{background:var(--pressure);border-color:var(--pressure);}
+  .chart-box{
+    background:var(--bg-card);border:1px solid var(--line);border-radius:4px;padding:20px;
+    height:340px;
+  }
+  #mainChart{width:100%;height:100%;}
+  #mainChart .grid-line{stroke:var(--line);stroke-width:1;}
+  #mainChart .axis-label{fill:var(--ink-dim);font-family:var(--font-mono);font-size:10px;}
+  #mainChart .series-line{fill:none;stroke-width:2;}
+  #mainChart .series-dot{stroke:none;}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-family:var(--font-mono);font-size:11px;color:var(--ink-dim);}
+  .legend .swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle;}
+  .empty-state{
+    color:var(--stone);font-family:var(--font-mono);font-size:13px;text-align:center;
+    padding:60px 20px;
+  }
+
+  /* ---- Table ---- */
+  table{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12.5px;}
+  thead th{
+    text-align:left;padding:10px 12px;color:var(--ink-dim);font-weight:500;
+    border-bottom:1px solid var(--line);text-transform:uppercase;letter-spacing:.05em;font-size:10.5px;
+  }
+  tbody td{padding:9px 12px;border-bottom:1px solid var(--line);color:var(--ink);}
+  tbody tr:hover{background:var(--bg-raised);}
+  tbody tr.flagged td{color:var(--error);}
+  .table-wrap{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:4px;background:var(--bg-card);}
+
+  /* ---- Update panel ---- */
+  .update-panel{
+    background:var(--bg-card);border:1px solid var(--line);border-radius:4px;padding:20px;
+  }
+  .update-panel p{color:var(--ink-dim);font-size:13px;margin-top:0;}
+  .update-panel textarea{
+    width:100%;min-height:110px;background:var(--bg);border:1px solid var(--line);border-radius:3px;
+    color:var(--ink);font-family:var(--font-mono);font-size:12px;padding:10px;resize:vertical;
+  }
+  .update-row{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;}
+  .update-row button{
+    font-family:var(--font-mono);font-size:12.5px;padding:9px 18px;border-radius:3px;border:1px solid var(--amber);
+    background:var(--amber);color:#1a1310;font-weight:600;cursor:pointer;
+  }
+  .update-row button.secondary{background:transparent;color:var(--ink-dim);border-color:var(--line);}
+  .status-msg{font-family:var(--font-mono);font-size:12px;color:var(--teal-bright);}
+  .status-msg.err{color:var(--error);}
+
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);
+    font-family:var(--font-mono);font-size:11.5px;color:var(--stone);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <p class="eyebrow">Chiang Dao · Chiang Mai · Rhum Cask Room</p>
+      <h1>Warehouse Microclimate</h1>
+      <p class="sub">Vertical stratification &amp; outdoor reference for Thailand's first purpose-built rhum aging bay. Baseline logging ahead of cask fill.</p>
+    </div>
+    <div class="season-badge" id="seasonBadge">
+      <span class="label">Today</span>
+      <span class="value" id="seasonValue">—</span>
+    </div>
+  </header>
+
+  <section>
+    <p class="section-title">Latest readings</p>
+    <div class="cards" id="cardsWrap"></div>
+  </section>
+
+  <section>
+    <p class="section-title">Rack stratification — floor / mid / top / outdoor</p>
+    <div class="rack" id="rackWrap"></div>
+  </section>
+
+  <section>
+    <p class="section-title">Time series</p>
+    <div class="chart-controls" id="metricControls">
+      <button data-metric="temp_c" class="active">Temp (°C)</button>
+      <button data-metric="humidity_pct">Humidity (%)</button>
+      <button data-metric="pressure_hpa">Pressure (hPa)</button>
+    </div>
+    <div class="chart-box"><svg id="mainChart" viewBox="0 0 900 300" preserveAspectRatio="none"></svg></div>
+    <div class="legend" id="chartLegend"></div>
+  </section>
+
+  <section>
+    <p class="section-title">Recent log</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Time</th><th>Node</th><th>Location</th><th>Temp °C</th><th>RH %</th><th>hPa</th><th>Flag</th></tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <p class="section-title">Live source</p>
+    <div class="update-panel">
+      <p>Fetches the <strong>readings</strong> tab directly from Google Sheets. Requires the sheet's share setting to be "Anyone with the link — Viewer" (File → Share). Nothing is written back to the sheet.</p>
+      <div class="update-row" style="margin-top:0;">
+        <input id="liveUrl" type="text" style="flex:1;min-width:260px;background:var(--bg);border:1px solid var(--line);border-radius:3px;color:var(--ink);font-family:var(--font-mono);font-size:12px;padding:9px 10px;" />
+      </div>
+      <div class="update-row">
+        <button id="liveFetchBtn">Fetch now</button>
+        <label style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12px;color:var(--ink-dim);">
+          <input type="checkbox" id="autoRefreshToggle"> Auto-refresh every 5 min
+        </label>
+        <span class="status-msg" id="liveStatusMsg"></span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="section-title">Manual update</p>
+    <div class="update-panel">
+      <p>Paste rows copied from the <strong>readings</strong> tab (columns date, time, node_id, location, temp_c, humidity_pct, pressure_hpa, flag — tab or comma separated, header optional). This replaces the dashboard's stored dataset in your browser only.</p>
+      <textarea id="csvInput" placeholder="2026-07-18&#9;22:58:03&#9;TEST-NODE-1&#9;Desk prototype&#9;17.95&#9;62.5&#9;1009&#9;"></textarea>
+      <div class="update-row">
+        <button id="applyBtn">Update dashboard</button>
+        <button class="secondary" id="resetBtn">Reset to seed data</button>
+        <span class="status-msg" id="statusMsg"></span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>4 nodes planned — 1 built (TEST-NODE-1) · 3 in-bay nodes pending replication</span>
+    <span>Cask fill target: November 2026</span>
+  </footer>
+
+</div>
+
+<script>
+const SEED_CSV = `date,time,node_id,location,temp_c,humidity_pct,pressure_hpa,flag
+2026-07-18,22:58:03,TEST-NODE-1,Desk prototype,17.95,62.5,1009,
+2026-07-18,22:58:52,TEST-NODE-1,Desk prototype,17.85,61.9,1009,
+2026-07-18,23:08:55,TEST-NODE-1,Desk prototype,18.92,62.4,1009.2,
+2026-07-18,23:18:58,TEST-NODE-1,Desk prototype,19.53,63.7,1009.2,
+2026-07-18,23:29:07,TEST-NODE-1,Desk prototype,19.49,64.4,1009.3,
+2026-07-18,23:39:10,TEST-NODE-1,Desk prototype,19.71,66.2,1009.3,`;
+
+const STORAGE_KEY = 'cask-room-readings-csv';
+
+function splitCSVLine(line){
+  if(line.includes('\t') && !line.includes('","')) return line.split('\t');
+  const out = []; let cur=''; let inQ=false;
+  for(let i=0;i<line.length;i++){
+    const c = line[i];
+    if(c === '"'){
+      if(inQ && line[i+1] === '"'){ cur+='"'; i++; }
+      else inQ = !inQ;
+    } else if(c === ',' && !inQ){
+      out.push(cur); cur='';
+    } else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+function parseCSV(text){
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim().length);
+  if(!lines.length) return [];
+  let start = 0;
+  const first = splitCSVLine(lines[0]).map(s=>s.trim().toLowerCase());
+  if(first[0] === 'date') start = 1;
+  const rows = [];
+  for(let i=start;i<lines.length;i++){
+    const parts = splitCSVLine(lines[i]).map(s=>s.trim());
+    if(parts.length < 7) continue;
+    const [date,time,node_id,location,temp_c,humidity_pct,pressure_hpa,flag] = parts;
+    rows.push({
+      date, time, node_id, location:location||'',
+      temp_c: parseFloat(temp_c), humidity_pct: parseFloat(humidity_pct),
+      pressure_hpa: parseFloat(pressure_hpa), flag: (flag||'').trim(),
+      ts: new Date(`${date}T${time}`)
+    });
+  }
+  return rows.sort((a,b)=>a.ts-b.ts);
+}
+
+function classify(nodeId){
+  const n = (nodeId||'').toUpperCase();
+  if(n.includes('OUTDOOR')) return 'outdoor';
+  if(n.includes('FLOOR')) return 'floor';
+  if(n.includes('MID')) return 'mid';
+  if(n.includes('TOP')) return 'top';
+  return 'other';
+}
+
+function seasonInfo(d){
+  const m = d.getMonth()+1;
+  if(m>=2 && m<=4) return {label:'Dry season — diurnal swing / over-oaking risk', cls:'dry'};
+  if(m>=6 && m<=9) return {label:'Monsoon — humidity ceiling watch', cls:'monsoon'};
+  return {label:'Shoulder season', cls:'shoulder'};
+}
+
+let rows = [];
+let activeMetric = 'temp_c';
+let autoRefreshTimer = null;
+
+const DEFAULT_SHEET_ID = '1eqwDoZ-1QwNLxJ_URpFSvtcGZJbAhkNzEzWtlxpmeiw';
+const DEFAULT_LIVE_URL = `https://docs.google.com/spreadsheets/d/${DEFAULT_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=readings`;
+const LIVE_URL_KEY = 'cask-room-live-url';
+
+function loadData(){
+  let csv = memCache || SEED_CSV;
+  rows = parseCSV(csv);
+  render();
+}
+
+// Storage layer: prefers the Claude-artifact window.storage API when present (this file
+// running inside claude.ai); falls back to plain localStorage once the file is hosted
+// as a standalone page elsewhere, since that restriction only applies inside the artifact sandbox.
+let memCache = null;
+
+async function storageGet(key){
+  if(window.storage && typeof window.storage.get === 'function'){
+    try{
+      const res = await window.storage.get(key);
+      if(res && res.value) return res.value;
+    }catch(e){ /* not set yet */ }
+    return null;
+  }
+  try{ return window.localStorage.getItem(key); }catch(e){ return null; }
+}
+
+async function storageSet(key, value){
+  if(window.storage && typeof window.storage.set === 'function'){
+    try{ await window.storage.set(key, value, false); }catch(e){}
+    return;
+  }
+  try{ window.localStorage.setItem(key, value); }catch(e){}
+}
+
+async function persist(csv){
+  memCache = csv;
+  await storageSet(STORAGE_KEY, csv);
+}
+
+async function tryLoadPersisted(){
+  return await storageGet(STORAGE_KEY);
+}
+
+async function fetchLive(showStatus){
+  const url = document.getElementById('liveUrl').value.trim();
+  const statusEl = document.getElementById('liveStatusMsg');
+  if(!url){ if(showStatus){ statusEl.textContent = 'Add the sheet URL first.'; statusEl.className='status-msg err'; } return; }
+  await storageSet(LIVE_URL_KEY, url);
+  if(showStatus){ statusEl.textContent = 'Fetching…'; statusEl.className='status-msg'; }
+  try{
+    const res = await fetch(url, {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    const parsed = parseCSV(text);
+    if(!parsed.length) throw new Error('No rows found — check sharing is set to "Anyone with the link".');
+    rows = parsed;
+    await persist(text);
+    render();
+    const now = new Date();
+    statusEl.textContent = `Live · updated ${now.toLocaleTimeString()}`;
+    statusEl.className = 'status-msg';
+  }catch(err){
+    statusEl.textContent = `Fetch failed: ${err.message}. Falling back to last saved data — check the sheet is shared as "Anyone with the link".`;
+    statusEl.className = 'status-msg err';
+  }
+}
+
+function setAutoRefresh(on){
+  if(autoRefreshTimer){ clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+  if(on) autoRefreshTimer = setInterval(() => fetchLive(true), 5 * 60 * 1000);
+}
+
+function latestByNode(){
+  const map = {};
+  rows.forEach(r=>{
+    if(!map[r.node_id] || r.ts > map[r.node_id].ts) map[r.node_id] = r;
+  });
+  return Object.values(map).sort((a,b)=> a.node_id.localeCompare(b.node_id));
+}
+
+function renderCards(){
+  const wrap = document.getElementById('cardsWrap');
+  const latest = latestByNode();
+  if(!latest.length){
+    wrap.innerHTML = '<div class="empty-state">No readings yet.</div>';
+    return;
+  }
+  const now = new Date();
+  wrap.innerHTML = latest.map(r=>{
+    const isOutdoor = classify(r.node_id)==='outdoor';
+    const ageMin = Math.round((now - r.ts)/60000);
+    const stale = ageMin > 60;
+    return `<div class="card ${isOutdoor?'outdoor':''}">
+      <div class="node">${r.node_id}</div>
+      <div class="loc">${r.location}</div>
+      <div class="metrics">
+        <div class="metric"><div class="m-label">Temp</div><span class="num num-temp">${r.temp_c.toFixed(1)}</span><span class="unit">°C</span></div>
+        <div class="metric"><div class="m-label">RH</div><span class="num num-humidity">${r.humidity_pct.toFixed(1)}</span><span class="unit">%</span></div>
+        <div class="metric"><div class="m-label">Pressure</div><span class="num num-pressure">${r.pressure_hpa.toFixed(1)}</span><span class="unit">hPa</span></div>
+      </div>
+      <div class="ts ${stale?'stale':''}">${r.date} ${r.time}${stale?' · stale, check node':''}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRack(){
+  const latest = latestByNode();
+  const bySlot = {floor:null, mid:null, top:null, outdoor:null};
+  latest.forEach(r=>{ const c = classify(r.node_id); if(bySlot.hasOwnProperty(c)) bySlot[c]=r; });
+
+  const temps = latest.map(r=>r.temp_c).filter(v=>!isNaN(v));
+  const tMin = temps.length? Math.min(...temps) : 15, tMax = temps.length? Math.max(...temps) : 30;
+  const span = Math.max(tMax - tMin, 1);
+
+  const order = [
+    {key:'top', label:'Top rack'},
+    {key:'mid', label:'Mid rack'},
+    {key:'floor', label:'Floor'},
+    {key:'outdoor', label:'Outdoor'}
+  ];
+
+  let html = `<div class="rhead">Slot</div>`;
+  order.forEach(o=>{
+    html += `<div class="rhead slot"><span class="slot-name">${o.label}</span></div>`;
+  });
+
+  html += `<div class="row-label">Temp / RH</div>`;
+  order.forEach(o=>{
+    const r = bySlot[o.key];
+    if(r){
+      const pct = ((r.temp_c - tMin)/span*100).toFixed(0);
+      html += `<div class="cell">
+        <div class="val" style="color:var(--temp);">${r.temp_c.toFixed(1)}°C</div>
+        <div style="font-size:11px;color:var(--humidity);margin-top:2px;">${r.humidity_pct.toFixed(0)}% RH</div>
+        <div class="heatbar"><span style="width:${pct}%"></span></div>
+      </div>`;
+    } else {
+      html += `<div class="cell"><div class="val empty">not yet deployed</div></div>`;
+    }
+  });
+
+  html += `<div class="note">Nodes named BAY1-FLOOR-A / BAY1-MID-A / BAY1-TOP-A / BAY1-OUTDOOR will auto-populate their slot here once logging.</div>`;
+  document.getElementById('rackWrap').innerHTML = html;
+}
+
+function renderChart(){
+  const svg = document.getElementById('mainChart');
+  const legendEl = document.getElementById('chartLegend');
+  const W = 900, H = 300, padL = 46, padR = 16, padT = 16, padB = 30;
+  svg.innerHTML = '';
+  legendEl.innerHTML = '';
+
+  if(!rows.length){
+    svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#8d8375" font-family="IBM Plex Mono" font-size="13">No data loaded.</text>`;
+    return;
+  }
+
+  const nodes = [...new Set(rows.map(r=>r.node_id))];
+  const metricBase = { temp_c:'#c0392b', humidity_pct:'#2563eb', pressure_hpa:'#1a8f4c' };
+  const baseColor = metricBase[activeMetric] || '#1a1a1a';
+  const shade = (hex, amt) => {
+    const n = parseInt(hex.slice(1),16);
+    let r = (n>>16)+amt, g = (n>>8 & 0xff)+amt, b = (n & 0xff)+amt;
+    r = Math.max(0,Math.min(255,r)); g = Math.max(0,Math.min(255,g)); b = Math.max(0,Math.min(255,b));
+    return '#' + (r<<16 | g<<8 | b).toString(16).padStart(6,'0');
+  };
+  const palette = nodes.map((_,i)=> i===0 ? baseColor : shade(baseColor, (i%2===0? -1:1) * 35 * Math.ceil(i/2)));
+
+  const allVals = rows.map(r=>r[activeMetric]).filter(v=>!isNaN(v));
+  const allTimes = rows.map(r=>r.ts.getTime());
+  if(!allVals.length){
+    svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#8d8375" font-family="IBM Plex Mono" font-size="13">No ${activeMetric} values yet.</text>`;
+    return;
+  }
+  let vMin = Math.min(...allVals), vMax = Math.max(...allVals);
+  if(vMin === vMax){ vMin -= 1; vMax += 1; }
+  const vPad = (vMax - vMin) * 0.12;
+  vMin -= vPad; vMax += vPad;
+  const tMin = Math.min(...allTimes), tMax = Math.max(...allTimes);
+  const tSpan = Math.max(tMax - tMin, 1);
+
+  const x = t => padL + ( (t - tMin) / tSpan ) * (W - padL - padR);
+  const y = v => padT + (1 - (v - vMin)/(vMax - vMin)) * (H - padT - padB);
+
+  let svgParts = '';
+
+  // horizontal gridlines + y labels
+  const steps = 4;
+  for(let i=0;i<=steps;i++){
+    const v = vMin + (vMax-vMin)*i/steps;
+    const yy = y(v);
+    svgParts += `<line class="grid-line" x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" />`;
+    svgParts += `<text class="axis-label" x="${padL-8}" y="${yy+3}" text-anchor="end">${v.toFixed(1)}</text>`;
+  }
+
+  // x labels: first and last timestamp
+  const firstRow = rows.find(r=>!isNaN(r.ts.getTime()));
+  const lastRow = [...rows].reverse().find(r=>!isNaN(r.ts.getTime()));
+  if(firstRow) svgParts += `<text class="axis-label" x="${padL}" y="${H-8}" text-anchor="start">${firstRow.time}</text>`;
+  if(lastRow) svgParts += `<text class="axis-label" x="${W-padR}" y="${H-8}" text-anchor="end">${lastRow.time}</text>`;
+
+  nodes.forEach((n,i)=>{
+    const color = palette[i%palette.length];
+    const nodeRows = rows.filter(r=>r.node_id===n && !isNaN(r[activeMetric]) && !isNaN(r.ts.getTime()));
+    if(!nodeRows.length) return;
+    const pathD = nodeRows.map((r,idx)=>{
+      const cmd = idx===0 ? 'M' : 'L';
+      return `${cmd}${x(r.ts.getTime()).toFixed(1)},${y(r[activeMetric]).toFixed(1)}`;
+    }).join(' ');
+    svgParts += `<path class="series-line" d="${pathD}" stroke="${color}" />`;
+    nodeRows.forEach(r=>{
+      svgParts += `<circle class="series-dot" cx="${x(r.ts.getTime()).toFixed(1)}" cy="${y(r[activeMetric]).toFixed(1)}" r="3" fill="${color}" />`;
+    });
+    legendEl.innerHTML += `<span><span class="swatch" style="background:${color}"></span>${n}</span>`;
+  });
+
+  svg.innerHTML = svgParts;
+}
+
+function renderTable(){
+  const body = document.getElementById('tableBody');
+  const recent = [...rows].reverse().slice(0,60);
+  if(!recent.length){
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--stone);padding:20px;">No rows loaded.</td></tr>';
+    return;
+  }
+  body.innerHTML = recent.map(r=>`
+    <tr class="${r.flag ? 'flagged':''}">
+      <td>${r.date}</td><td>${r.time}</td><td>${r.node_id}</td><td>${r.location}</td>
+      <td>${isNaN(r.temp_c)?'—':r.temp_c.toFixed(2)}</td>
+      <td>${isNaN(r.humidity_pct)?'—':r.humidity_pct.toFixed(1)}</td>
+      <td>${isNaN(r.pressure_hpa)?'—':r.pressure_hpa.toFixed(1)}</td>
+      <td>${r.flag||''}</td>
+    </tr>`).join('');
+}
+
+function renderSeason(){
+  const now = new Date();
+  const info = seasonInfo(now);
+  const badge = document.getElementById('seasonBadge');
+  badge.classList.toggle('monsoon', info.cls==='monsoon');
+  document.getElementById('seasonValue').textContent = info.label;
+}
+
+function render(){
+  renderSeason();
+  renderCards();
+  renderRack();
+  renderChart();
+  renderTable();
+}
+
+document.getElementById('metricControls').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-metric]');
+  if(!btn) return;
+  document.querySelectorAll('#metricControls button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  activeMetric = btn.dataset.metric;
+  renderChart();
+});
+
+document.getElementById('applyBtn').addEventListener('click', async ()=>{
+  const text = document.getElementById('csvInput').value.trim();
+  const statusEl = document.getElementById('statusMsg');
+  if(!text){ statusEl.textContent = 'Paste some rows first.'; statusEl.className='status-msg err'; return; }
+  const parsed = parseCSV(text);
+  if(!parsed.length){ statusEl.textContent = 'Could not parse any rows — check the column order.'; statusEl.className='status-msg err'; return; }
+  rows = parsed;
+  await persist(text);
+  render();
+  statusEl.textContent = `Loaded ${parsed.length} row(s).`;
+  statusEl.className = 'status-msg';
+});
+
+document.getElementById('resetBtn').addEventListener('click', async ()=>{
+  document.getElementById('csvInput').value = '';
+  await persist(SEED_CSV);
+  rows = parseCSV(SEED_CSV);
+  render();
+  document.getElementById('statusMsg').textContent = 'Reset to seed data.';
+  document.getElementById('statusMsg').className = 'status-msg';
+});
+
+document.getElementById('liveFetchBtn').addEventListener('click', ()=> fetchLive(true));
+
+document.getElementById('autoRefreshToggle').addEventListener('change', e=>{
+  setAutoRefresh(e.target.checked);
+});
+
+(async function init(){
+  const persisted = await tryLoadPersisted();
+  if(persisted){ memCache = persisted; }
+  const savedUrl = await storageGet(LIVE_URL_KEY);
+  document.getElementById('liveUrl').value = savedUrl || DEFAULT_LIVE_URL;
+  loadData();
+})();
+</script>
+</body>
+</html>
