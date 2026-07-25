@@ -238,6 +238,15 @@
   .status-msg{font-family:var(--font-mono);font-size:12px;color:var(--pressure);}
   .status-msg.err{color:var(--error);}
 
+  .chart-tooltip{
+    position:fixed;pointer-events:none;z-index:1000;background:var(--ink);color:#fff;
+    font-family:var(--font-mono);font-size:11.5px;padding:6px 10px;border-radius:6px;
+    box-shadow:var(--shadow-md);opacity:0;transform:translate(-50%, calc(-100% - 10px));transition:opacity .1s ease;
+    white-space:pre-line;text-align:center;line-height:1.4;
+  }
+  .chart-tooltip.show{opacity:1;}
+  .data-point{cursor:pointer;}
+
   footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--line);
     font-family:var(--font-mono);font-size:11.5px;color:var(--stone);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;}
   @media (max-width: 640px){
@@ -394,6 +403,8 @@
 
 </div>
 
+<div id="chartTooltip" class="chart-tooltip"></div>
+
 <script>
 const ICONS = {
   temp_c: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0Z"/></svg>',
@@ -478,6 +489,12 @@ function parseCSV(text){
     });
   }
   return rows.sort((a,b)=>a.ts-b.ts);
+}
+
+const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function shortDateTime(r){
+  const d = r.ts;
+  return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()} · ${r.time}`;
 }
 
 function classify(nodeId){
@@ -807,9 +824,13 @@ function renderCombinedChart(){
       return `${cmd}${x(r.ts.getTime()).toFixed(1)},${yNorm(norm).toFixed(1)}`;
     }).join(' ');
     svgParts += `<path class="series-line" d="${pathD}" stroke="${m.color}" />`;
+    const unitMap = { temp_c:'°C', humidity_pct:'%', pressure_hpa:'hPa' };
     validForMetric.forEach(r=>{
       const norm = (r[m.key]-vMin)/(vMax-vMin);
-      svgParts += `<circle class="series-dot" cx="${x(r.ts.getTime()).toFixed(1)}" cy="${yNorm(norm).toFixed(1)}" r="3" fill="${m.color}" />`;
+      const cx = x(r.ts.getTime()).toFixed(1), cy = yNorm(norm).toFixed(1);
+      const label = `${shortDateTime(r)}\n${r[m.key].toFixed(1)}${unitMap[m.key]||''}`;
+      svgParts += `<circle class="data-point" cx="${cx}" cy="${cy}" r="9" fill="transparent" data-label="${label}" />`;
+      svgParts += `<circle class="series-dot" cx="${cx}" cy="${cy}" r="3" fill="${m.color}" style="pointer-events:none;" />`;
     });
     legendEl.innerHTML += `<span><span class="swatch" style="background:${m.color}"></span>${m.label}</span>`;
 
@@ -922,8 +943,12 @@ function renderChart(){
       return `${cmd}${x(r.ts.getTime()).toFixed(1)},${y(r[activeMetric]).toFixed(1)}`;
     }).join(' ');
     svgParts += `<path class="series-line" d="${pathD}" stroke="${color}" />`;
+    const unitMap2 = { temp_c:'°C', humidity_pct:'%', pressure_hpa:'hPa' };
     nodeRows.forEach(r=>{
-      svgParts += `<circle class="series-dot" cx="${x(r.ts.getTime()).toFixed(1)}" cy="${y(r[activeMetric]).toFixed(1)}" r="3.5" fill="${color}" />`;
+      const cx = x(r.ts.getTime()).toFixed(1), cy = y(r[activeMetric]).toFixed(1);
+      const label = `${shortDateTime(r)}\n${r[activeMetric].toFixed(1)}${unitMap2[activeMetric]||''}`;
+      svgParts += `<circle class="data-point" cx="${cx}" cy="${cy}" r="9" fill="transparent" data-label="${label}" />`;
+      svgParts += `<circle class="series-dot" cx="${cx}" cy="${cy}" r="3.5" fill="${color}" style="pointer-events:none;" />`;
     });
     legendEl.innerHTML += `<span><span class="swatch" style="background:${color}"></span>${n}</span>`;
   });
@@ -1027,6 +1052,36 @@ document.getElementById('resetBtn').addEventListener('click', async ()=>{
   document.getElementById('statusMsg').textContent = 'Reset to seed data.';
   document.getElementById('statusMsg').className = 'status-msg';
 });
+
+const tooltipEl = document.getElementById('chartTooltip');
+function showTooltip(target, clientX, clientY){
+  tooltipEl.textContent = target.dataset.label;
+  tooltipEl.style.left = clientX + 'px';
+  tooltipEl.style.top = (clientY - 14) + 'px';
+  tooltipEl.classList.add('show');
+}
+function hideTooltip(){ tooltipEl.classList.remove('show'); }
+
+document.addEventListener('mouseover', e=>{
+  const pt = e.target.closest('.data-point');
+  if(pt) showTooltip(pt, e.clientX, e.clientY);
+});
+document.addEventListener('mousemove', e=>{
+  if(!tooltipEl.classList.contains('show')) return;
+  const pt = e.target.closest('.data-point');
+  if(pt) showTooltip(pt, e.clientX, e.clientY); else hideTooltip();
+});
+document.addEventListener('mouseout', e=>{
+  if(e.target.closest('.data-point')) hideTooltip();
+});
+document.addEventListener('touchstart', e=>{
+  const pt = e.target.closest('.data-point');
+  if(pt){
+    const touch = e.touches[0];
+    showTooltip(pt, touch.clientX, touch.clientY);
+    setTimeout(hideTooltip, 2000);
+  }
+}, {passive:true});
 
 document.getElementById('liveFetchBtn').addEventListener('click', ()=> fetchLive(true));
 
